@@ -29,9 +29,24 @@
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700;800&family=Barlow:wght@500;600;700&display=swap" rel="stylesheet" />
+<script>
+  /* Installed-PWA detection for the top shift below. iOS Safari's
+     legacy standalone flag is covered here; standards-based browsers
+     are covered by the (display-mode: standalone) media query in CSS.
+     Runs in <head> so the class is set before first paint. */
+  (function(){
+    try{
+      if(window.navigator.standalone === true ||
+         (window.matchMedia && window.matchMedia("(display-mode: standalone)").matches)){
+        document.documentElement.classList.add("is-standalone");
+      }
+    }catch(e){}
+  })();
+</script>
 <style>
   :root{
     color-scheme: light dark;
+    --pwa-shift:0px;
     --bar-bg:#ffffff; --bar-ink:#1d242e; --bar-muted:#66707c; --bar-line:#dde3dd;
     --pink:#ef8fab; --pink-deep:#d1406f;
     --green:#1e9e6a; --green-deep:#0c5c3c; --green-dark:#0a4630;
@@ -46,6 +61,19 @@
       --card:#f7f5ef; --gen-ink:#ff9dbd; --strike:#ff7a7a;
     }
   }
+  /* ===== standalone PWA top shift =====
+     When installed (display-mode: standalone, incl. iOS standalone via
+     the .is-standalone class set in <head>), shift the whole app down
+     40px so the top bar sits below the iOS blurry mask / scroll-edge
+     effect. In a normal browser tab --pwa-shift stays 0 and nothing
+     moves. #app keeps height:100dvh with box-sizing:border-box, so
+     the 40px is taken from the top of the flex column and the
+     single-screen, no-scroll layout still fits exactly. The strip
+     above the top bar shows the body's dark green background. */
+  @media (display-mode: standalone){
+    :root{ --pwa-shift:40px; }
+  }
+  html.is-standalone{ --pwa-shift:40px; }
   *{box-sizing:border-box;-webkit-touch-callout:none;-webkit-tap-highlight-color:transparent}
   html,body{height:100%;touch-action:manipulation;overscroll-behavior:none}
   body{margin:0;overflow:hidden;background:var(--green-dark);color:var(--bar-ink);
@@ -55,7 +83,7 @@
   button:focus-visible{outline:3px solid var(--yellow);outline-offset:2px}
   img{display:block;max-width:100%}
   svg{display:block}
-  #app{display:flex;flex-direction:column;height:100dvh;overflow:hidden}
+  #app{display:flex;flex-direction:column;height:100dvh;overflow:hidden;padding-top:var(--pwa-shift)}
 
   /* ===== top bar ===== */
   header.hud{flex:none;background:var(--bar-bg);color:var(--bar-ink);border-bottom:3px solid var(--green);position:relative;z-index:20}
@@ -210,7 +238,7 @@
   @media (prefers-color-scheme: dark){ .btn-icon:active{background:#3a2430} }
 
   /* ===== overlays ===== */
-  .overlay{position:fixed;inset:0;background:rgba(6,24,17,.9);display:none;align-items:center;justify-content:center;padding:14px;z-index:90}
+  .overlay{position:fixed;inset:0;background:rgba(6,24,17,.9);display:none;align-items:center;justify-content:center;padding:14px;padding-top:calc(14px + var(--pwa-shift));z-index:90}
   .overlay.show{display:flex}
   .card{background:var(--card);color:var(--card-ink);border-radius:18px;max-width:400px;width:100%;box-shadow:var(--shadow);overflow:hidden;max-height:94dvh;overflow-y:auto}
   .card .hero{width:100%;height:auto;aspect-ratio:16/9;object-fit:cover;object-position:center 26%;background:#0e3a2a}
@@ -246,8 +274,8 @@
      shorter phones it scales down (contain, whole sheet visible, cream
      background matching the sheet) instead of pushing Play off-screen
      or forcing the card to scroll. */
-  #infoOverlay{padding:10px 8px;align-items:stretch}
-  #infoOverlay .card{display:flex;flex-direction:column;height:calc(100dvh - 20px);max-height:calc(100dvh - 20px);overflow:hidden}
+  #infoOverlay{padding:10px 8px;padding-top:calc(10px + var(--pwa-shift));align-items:stretch}
+  #infoOverlay .card{display:flex;flex-direction:column;height:calc(100dvh - 20px - var(--pwa-shift));max-height:calc(100dvh - 20px - var(--pwa-shift));overflow:hidden}
   #infoOverlay .hero{flex:0 0 auto;width:100%;max-width:100%;height:clamp(118px,21dvh,196px);aspect-ratio:auto;object-fit:cover;object-position:center 26%;background:#0e3a2a}
   #infoOverlay .pad{flex:0 0 auto;display:flex;flex-direction:column;padding:12px 16px 0}
   #infoOverlay h3{font-size:32px}
