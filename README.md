@@ -18,5 +18,5 @@ Play it at https://ckeisc.github.io/phone-factory/ — installable as a PWA
 (Add to Home Screen). Single self-contained `index.html` plus `assets/`;
 three.js loads from CDN.
 
-Icon is provisional — a panicking worker putting parts on an iPhone, in the
-game's art style — and will be swapped for the final icon.
+Icon: iPhone 17, screen side, with parts flying out with spark and smoke
+on a pink background — the final game icon.
