@@ -132,14 +132,21 @@
      standalone — see the html background note above for the
      canvas paint that carries the bar's colour the rest of the
      way. */
-  /* height:100lvh is a second, independent attempt to reach the
-     physical bottom: the LARGE viewport height counts screen area
-     the layout viewport (and dvh) can exclude in standalone. Where
-     lvh equals the layout height it changes nothing; where it is
-     taller, #app — and the footer at its end — stretch the extra
-     distance. The html canvas paint above covers the colour either
-     way, so the bar reads as reaching the edge in both cases. */
-  #app{position:fixed;inset:0;height:100dvh;height:100lvh;display:flex;flex-direction:column;overflow:hidden;padding-top:var(--pwa-shift)}
+  /* Sizing: #app is sized by inset:0 ALONE (height:auto) — no
+     viewport-unit height at all. The previous height:100lvh
+     OVERSHOT: the large-viewport height is taller than the visible
+     layout viewport in iOS standalone, so #app stretched past the
+     screen's bottom edge and pushed the footer with it — the
+     bar's buttons were clipped at their bottom edges. With
+     top:0 + bottom:0 and height:auto, #app is exactly the layout
+     viewport: the footer (flex:none, last child) sits fully
+     inside it, buttons completely visible, and the footer's own
+     background — safe-area padding included — fills down to
+     #app's bottom edge. Any strip below the layout viewport on
+     iOS is still painted the bar's colour by the propagated html
+     canvas background above, so the dark bar reads as reaching
+     the physical screen edge with no green strip below it. */
+  #app{position:fixed;inset:0;height:auto;display:flex;flex-direction:column;overflow:hidden;padding-top:var(--pwa-shift)}
 
   /* ===== top bar ===== */
   header.hud{flex:none;background:var(--bar-bg);color:var(--bar-ink);border-bottom:3px solid var(--green);position:relative;z-index:20}
