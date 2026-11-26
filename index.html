@@ -85,6 +85,34 @@
   html.is-standalone{ --pwa-shift:max(56px, calc(env(safe-area-inset-top, 0px) + 10px)); }
   *{box-sizing:border-box;-webkit-touch-callout:none;-webkit-tap-highlight-color:transparent}
   html,body{height:100%;touch-action:manipulation;overscroll-behavior:none}
+  /* ===== bottom gap: paint the CANVAS, not a strip inside #app =====
+     Diagnosis (measured from the user's screenshots): across three
+     builds with three different app-height mechanisms (100dvh chain,
+     full-height fill, position:fixed inset:0) the bottom bar ended
+     at the exact same pixel and the green strip below it was the
+     exact same height (~48pt). The container's height was never the
+     variable: in iOS standalone the CSS layout viewport itself lands
+     short of the physical screen bottom, so EVERY in-page box —
+     #app included, however it is sized — ends at the layout
+     viewport's bottom edge, and the remaining strip is painted by
+     the propagated root background (the body's dark green). No
+     element inside #app can ever paint there, which is why the
+     extension strip was clipped and inset:0 changed nothing.
+     Fix: give <html> a background whose bottom band is the bottom
+     bar's colour. The root background propagates to the whole
+     canvas — full physical screen, below the layout viewport
+     included — and is never clipped by #app's overflow:hidden.
+     The green layer covers everything except the bottom 64px
+     (taller than the measured ~48pt strip, shorter than the bar
+     itself incl. its safe-area padding, so the seam always lands
+     hidden inside the bar's own background), and the dark
+     background-color fills that band and anything below the
+     gradient if a browser sizes it against the root box instead
+     of the canvas. Top is untouched: the gradient's green is the
+     same --green-dark the body already showed above the top bar. */
+  html{background-color:var(--bar-bg);
+    background-image:linear-gradient(180deg,var(--green-dark),var(--green-dark));
+    background-size:100% calc(100% - 64px);background-repeat:no-repeat;background-position:top center}
   body{margin:0;overflow:hidden;background:var(--green-dark);color:var(--bar-ink);
     font-family:"Barlow",system-ui,-apple-system,"Segoe UI",sans-serif;
     user-select:none;-webkit-user-select:none;position:fixed;inset:0;width:100%}
@@ -92,19 +120,26 @@
   button:focus-visible{outline:3px solid var(--yellow);outline-offset:2px}
   img{display:block;max-width:100%}
   svg{display:block}
-  /* #app is anchored to the SCREEN EDGES with position:fixed inset:0
-     instead of being sized by a height value. That is the actual fix
-     for the app rendering inset in the middle of the viewport: both
-     height:100dvh and the height:100% chain (html → body → #app)
-     resolved SHORTER than the physical screen in iOS standalone —
-     the percentage chain resolves against the safe-area content box,
-     leaving a body-green strip below the bottom bar (and the earlier
-     dvh attempt measured short too). A fixed element with top:0 and
-     bottom:0 under viewport-fit=cover stretches edge to edge
-     regardless of what any height unit resolves to, so the flex
-     column always spans the full screen: top bar at the top (below
-     the --pwa-shift padding), bottom bar flush with the bottom edge. */
-  #app{position:fixed;inset:0;display:flex;flex-direction:column;overflow:hidden;padding-top:var(--pwa-shift)}
+  /* #app is anchored to the layout viewport's edges with
+     position:fixed inset:0 instead of being sized by a height
+     value: both height:100dvh and the height:100% chain
+     (html → body → #app) rendered the app inset in the middle of
+     the screen, while fixed inset:0 at least pins the flex column
+     to the full layout viewport — top bar at the top (below the
+     --pwa-shift padding), bottom bar at the layout viewport's
+     bottom edge. NOTE: measured on device, that bottom edge is
+     itself ~48pt short of the physical screen bottom in iOS
+     standalone — see the html background note above for the
+     canvas paint that carries the bar's colour the rest of the
+     way. */
+  /* height:100lvh is a second, independent attempt to reach the
+     physical bottom: the LARGE viewport height counts screen area
+     the layout viewport (and dvh) can exclude in standalone. Where
+     lvh equals the layout height it changes nothing; where it is
+     taller, #app — and the footer at its end — stretch the extra
+     distance. The html canvas paint above covers the colour either
+     way, so the bar reads as reaching the edge in both cases. */
+  #app{position:fixed;inset:0;height:100dvh;height:100lvh;display:flex;flex-direction:column;overflow:hidden;padding-top:var(--pwa-shift)}
 
   /* ===== top bar ===== */
   header.hud{flex:none;background:var(--bar-bg);color:var(--bar-ink);border-bottom:3px solid var(--green);position:relative;z-index:20}
@@ -243,18 +278,20 @@
   }
 
   /* ===== bottom bar ===== */
-  footer.bar{flex:none;display:flex;gap:7px;background:var(--bar-bg);border-top:1px solid var(--bar-line);
+  footer.bar{flex:none;margin-top:auto;display:flex;gap:7px;background:var(--bar-bg);border-top:1px solid var(--bar-line);
     padding:7px 8px calc(7px + env(safe-area-inset-bottom));position:relative}
-  /* No extension strip below the bar: the previous ::after painted
-     120px past the bar's bottom edge, but #app has overflow:hidden,
-     so anything outside #app's box was clipped and the strip could
-     never show — while #app itself ended short of the screen bottom
-     (see the #app note above), leaving the green gap. Now #app is
-     fixed inset:0, so this bar IS the last thing in the flex column
-     at the very bottom edge, and its own background — including the
-     env(safe-area-inset-bottom) padding above, which keeps the
-     buttons clear of the home indicator — fills through to the
-     screen edge. Nothing below it exists to gap. */
+  /* The bar is anchored to the bottom of the flex column twice
+     over: it is the last child AND has margin-top:auto, so it sits
+     at #app's bottom edge even if the stage above it under-fills.
+     Its own background — including the env(safe-area-inset-bottom)
+     padding, which keeps the buttons clear of the home indicator —
+     fills to #app's bottom edge. The remaining strip BELOW #app on
+     iOS (layout viewport shorter than the physical screen; see the
+     html background note at the top of this stylesheet) is painted
+     this same colour by the propagated root background, so the
+     bar's colour continues to the physical screen edge. No
+     extension strip is used: anything painted past #app's box is
+     clipped by its overflow:hidden and can never show there. */
   .btn-play{flex:1;background:var(--pink-deep);color:#fff;border:none;border-radius:12px;
     display:flex;align-items:center;justify-content:center;gap:8px;
     font-family:"Barlow Condensed",sans-serif;font-weight:800;font-size:21px;letter-spacing:.05em;padding:9px 10px}
