@@ -64,16 +64,20 @@
   /* ===== standalone PWA top shift =====
      When installed (display-mode: standalone, incl. iOS standalone via
      the .is-standalone class set in <head>), shift the whole app down
-     40px so the top bar sits below the iOS blurry mask / scroll-edge
-     effect. In a normal browser tab --pwa-shift stays 0 and nothing
-     moves. #app keeps height:100dvh with box-sizing:border-box, so
-     the 40px is taken from the top of the flex column and the
-     single-screen, no-scroll layout still fits exactly. The strip
-     above the top bar shows the body's dark green background. */
+     90px so the top bar sits below the iOS blurry mask / scroll-edge
+     effect. 40px was NOT enough on device: the wallet/strikes row
+     (hud-l1) still sat inside the blur zone under the status bar
+     while hud-l2 below it was sharp — 90px puts hud-l1 fully below
+     the blurry line with margin. In a normal browser tab
+     --pwa-shift stays 0 and nothing moves. #app keeps
+     box-sizing:border-box, so the shift is taken from the top of the
+     flex column and the single-screen, no-scroll layout still fits
+     exactly. The strip above the top bar shows the body's dark green
+     background. */
   @media (display-mode: standalone){
-    :root{ --pwa-shift:40px; }
+    :root{ --pwa-shift:90px; }
   }
-  html.is-standalone{ --pwa-shift:40px; }
+  html.is-standalone{ --pwa-shift:90px; }
   *{box-sizing:border-box;-webkit-touch-callout:none;-webkit-tap-highlight-color:transparent}
   html,body{height:100%;touch-action:manipulation;overscroll-behavior:none}
   body{margin:0;overflow:hidden;background:var(--green-dark);color:var(--bar-ink);
@@ -83,7 +87,11 @@
   button:focus-visible{outline:3px solid var(--yellow);outline-offset:2px}
   img{display:block;max-width:100%}
   svg{display:block}
-  #app{display:flex;flex-direction:column;height:100dvh;overflow:hidden;padding-top:var(--pwa-shift)}
+  /* height:100% (chained from the position:fixed inset:0 body) is the
+     primary fill: on device, 100dvh resolved SHORTER than the real
+     screen in standalone, leaving a green strip of body background
+     below the bottom bar. 100dvh stays as the fallback line above. */
+  #app{display:flex;flex-direction:column;height:100dvh;height:100%;overflow:hidden;padding-top:var(--pwa-shift)}
 
   /* ===== top bar ===== */
   header.hud{flex:none;background:var(--bar-bg);color:var(--bar-ink);border-bottom:3px solid var(--green);position:relative;z-index:20}
@@ -223,7 +231,12 @@
 
   /* ===== bottom bar ===== */
   footer.bar{flex:none;display:flex;gap:7px;background:var(--bar-bg);border-top:1px solid var(--bar-line);
-    padding:7px 8px calc(7px + env(safe-area-inset-bottom))}
+    padding:7px 8px calc(7px + env(safe-area-inset-bottom));position:relative}
+  /* the bar's colour continues past its bottom edge, through the
+     home-indicator / safe area to the very bottom of the screen, so
+     no green strip can ever show below it (clipped off-screen when
+     the bar already reaches the edge) */
+  footer.bar::after{content:"";position:absolute;left:0;right:0;top:100%;height:120px;background:var(--bar-bg);pointer-events:none}
   .btn-play{flex:1;background:var(--pink-deep);color:#fff;border:none;border-radius:12px;
     display:flex;align-items:center;justify-content:center;gap:8px;
     font-family:"Barlow Condensed",sans-serif;font-weight:800;font-size:21px;letter-spacing:.05em;padding:9px 10px}
