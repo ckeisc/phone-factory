@@ -25,7 +25,7 @@
 <link rel="icon" type="image/png" sizes="192x192" href="assets/icon-192.png" />
 <link rel="icon" type="image/png" sizes="512x512" href="assets/icon-512.png" />
 <link rel="apple-touch-icon" sizes="180x180" href="assets/apple-touch-icon.png" />
-<title>Phone Factory — a CoyoTech production</title>
+<title>PhoneFactory — a CoyoTech production</title>
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700;800&family=Barlow:wght@500;600;700&display=swap" rel="stylesheet" />
@@ -171,7 +171,39 @@
   #stage{position:relative;flex:1;min-height:0;display:flex;flex-direction:column;overflow:hidden;
     background:linear-gradient(180deg,#0e5c3d 0%,#0a4630 100%)}
   .stage-bg{position:absolute;inset:0;overflow:hidden;opacity:.30;pointer-events:none;background:#0a4630}
-  .stage-bg video{width:100%;height:100%;object-fit:cover;object-position:center 22%;display:block}
+  /* ===== code-driven infinite drone loop (replaces the old video) =====
+     Two identical copies of the existing factory background
+     (hero-factory.webp — same central aisle, same green benches,
+     same pink-overall workers) stacked in .stage-bg. Each layer
+     zooms straight forward about the image's vanishing point
+     (transform-origin 50% 36% — dead centre of the aisle, where
+     the rows converge), scaling 1 → 1.5 over 6s, so the camera
+     flies down the aisle the whole time and never pans or drifts
+     sideways. The layers run the same 12s cycle half a period
+     apart: while one layer finishes its zoom at scale 1.5, the
+     other is at scale 1, and they crossfade for 0.6s at the wrap.
+     The incoming frame at the loop point is literally the same
+     image at the same scale as the outgoing layer's first frame,
+     so the loop is perfect by construction — no jump, no gap, and
+     no end wall ever approaches: the hall in the image already
+     recedes to the vanishing point and the zoom recycles it
+     forever. Scale never drops below 1, so the frame is always
+     fully covered. Speed: a full 1 → 1.5 advance every 6s — a
+     clear, steady drone flight, far faster than the old video's
+     0.25x drift, kept readable by the .30 opacity + shade above. */
+  .drone-layer{position:absolute;inset:0;background-image:url("assets/hero-factory.webp");
+    background-size:cover;background-position:center 22%;background-repeat:no-repeat;
+    transform-origin:50% 36%;transform:scale(1);will-change:transform,opacity;
+    animation:droneFly 12s linear infinite}
+  .drone-layer.back{animation-delay:-6s}
+  @keyframes droneFly{
+    0%{transform:scale(1);opacity:1}
+    50%{transform:scale(1.5);opacity:1}
+    55%{transform:scale(1.5);opacity:0}
+    62%{transform:scale(1);opacity:0}
+    95%{transform:scale(1);opacity:0}
+    100%{transform:scale(1);opacity:1}
+  }
   .stage-shade{position:absolute;inset:0;background:linear-gradient(180deg,rgba(7,46,31,.42),rgba(7,46,31,.66) 46%,rgba(6,38,26,.92));pointer-events:none}
   .stage-in{position:relative;flex:1;min-height:0;display:flex;flex-direction:column;gap:5px;padding:6px 8px 7px}
   #toast{position:absolute;top:8px;left:50%;transform:translateX(-50%) scale(.9);z-index:30;
@@ -306,6 +338,7 @@
     .part.wrong,.lin-sprite.shake,.phone .seq .pc.have,.phone .p-rushdot,.phone .p-late,.station.done,.fin-seal,.fin-shine,.bench.celebrate::after{animation:none}
     .bench.celebrate::after{display:none}
     .fx{animation-duration:.01s}.hud-quota .bar i{transition:none}
+    .drone-layer{animation:none}
   }
 
   /* ===== bottom bar ===== */
@@ -448,7 +481,7 @@
   </header>
 
   <main id="stage">
-    <div class="stage-bg" aria-hidden="true"><video id="stageBgVideo" src="assets/factory-drone-loop.mp4" poster="assets/hero-factory.webp" autoplay muted loop playsinline preload="auto" disablepictureinpicture aria-hidden="true"></video></div>
+    <div class="stage-bg" aria-hidden="true"><div class="drone-layer"></div><div class="drone-layer back"></div></div>
     <div class="stage-shade" aria-hidden="true"></div>
     <div id="toast" role="status"></div>
     <div class="stage-in">
@@ -2253,29 +2286,6 @@
   setLin(0);
   renderTray();
   renderAll();
-})();
-</script>
-<script>
-(function(){
-  var v = document.getElementById("stageBgVideo");
-  if(!v) return;
-  var RATE = 0.25;
-  function applyRate(){ try{ v.playbackRate = RATE; v.defaultPlaybackRate = RATE; }catch(e){} }
-  function tryPlay(){
-    applyRate();
-    var reduced = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-    if(reduced){ try{ v.pause(); }catch(e){} return; }
-    var p = v.play();
-    if(p && p.catch) p.catch(function(){});
-  }
-  v.loop = true; v.muted = true; v.setAttribute("muted",""); v.playsInline = true;
-  v.addEventListener("loadedmetadata", tryPlay);
-  v.addEventListener("canplay", tryPlay);
-  v.addEventListener("playing", applyRate);
-  v.addEventListener("ratechange", function(){ if(Math.abs(v.playbackRate - RATE) > 0.01) applyRate(); });
-  document.addEventListener("visibilitychange", function(){ if(!document.hidden) tryPlay(); });
-  applyRate();
-  if(v.readyState >= 2) tryPlay();
 })();
 </script>
 <script>
