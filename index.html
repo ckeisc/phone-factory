@@ -272,29 +272,6 @@
   .bench.has3d #bench3d{display:block}
   .bench.has3d .bench-phone{display:none}
   .lin-chip{position:absolute;left:2px;bottom:0;height:min(88%,230px);width:auto;pointer-events:none;filter:drop-shadow(0 4px 6px rgba(0,0,0,.4))}
-  /* ===== Gen 1 Lin sprite animation =====
-     One div, one strip at a time: the strip is scaled to
-     (frames x 100)% wide and the current frame is shown by stepping
-     background-position — no DOM rebuilds per frame, taps untouched
-     (pointer-events:none, exactly like the static .lin-chip it
-     replaces). Same bench spot and same height as the static image;
-     the width follows each strip's own frame aspect so no frame is
-     distorted. The generated strips did not land on a uniform grid
-     (idle/assemble 8 frames, panic 9, ship 7, unevenly spaced), so
-     panic and ship were re-sliced in the assets around each figure's
-     centre into uniform cells: panic 624x560, ship 455x912;
-     idle/assemble keep their native 400x800 cells. Backgrounds are
-     keyed out in the asset files themselves, so Lin stands on the
-     bench, not in a white box. Gen 1 only — other generations keep
-     the static .lin-chip image. */
-  .lin-sprite{position:absolute;left:2px;bottom:0;height:min(88%,230px);aspect-ratio:400/800;
-    background-repeat:no-repeat;background-size:800% 100%;background-position:0% 0;
-    pointer-events:none;display:none}
-  .lin-sprite.on{display:block}
-  .lin-sprite[data-state="panic"]{aspect-ratio:624/560;background-size:900% 100%}
-  .lin-sprite[data-state="ship"]{aspect-ratio:455/912;background-size:700% 100%}
-  .lin-sprite.shake{animation:linShake .3s}
-  @keyframes linShake{0%,100%{transform:translateX(0)}25%{transform:translateX(-5px)}75%{transform:translateX(5px)}}
   .hands{position:absolute;right:2px;bottom:2px;display:flex;gap:6px;z-index:3}
   .hand{width:46px;height:46px;border-radius:50%;border:2.5px dashed rgba(255,255,255,.55);background:rgba(10,20,16,.55);
     display:flex;align-items:center;justify-content:center;color:#cfe6d8;padding:0}
@@ -335,7 +312,7 @@
     color:var(--yellow);text-shadow:0 2px 6px rgba(0,0,0,.55);animation:floatUp .9s ease-out forwards;z-index:40}
   @keyframes floatUp{from{opacity:1;transform:translateY(0) scale(1)}to{opacity:0;transform:translateY(-52px) scale(1.15)}}
   @media (prefers-reduced-motion: reduce){
-    .part.wrong,.lin-sprite.shake,.phone .seq .pc.have,.phone .p-rushdot,.phone .p-late,.station.done,.fin-seal,.fin-shine,.bench.celebrate::after{animation:none}
+    .part.wrong,.phone .seq .pc.have,.phone .p-rushdot,.phone .p-late,.station.done,.fin-seal,.fin-shine,.bench.celebrate::after{animation:none}
     .bench.celebrate::after{display:none}
     .fx{animation-duration:.01s}.hud-quota .bar i{transition:none}
     .drone-layer{animation:none}
@@ -501,7 +478,6 @@
           <rect x="30" y="156" width="44" height="5" rx="2.5" fill="#46545f"/>
         </svg>
         <img class="lin-chip" id="linImg" src="assets/lin-era1.webp" alt="Lin — the same young Chinese girl from the character sheet, in her pink CoyoTech uniform, hair net and mask, standing on her step-box" />
-        <div class="lin-sprite" id="linSprite" data-state="idle" role="img" aria-label="Lin at her bench, animated — breathing idle, assembling parts, panicking on late orders and celebrating shipments"></div>
         <div class="hands" id="hands"></div>
       </div>
       <div class="stations" id="stations"></div>
@@ -764,124 +740,7 @@
     var img = $("linImg");
     var src = LIN_SPRITES[era] || LIN_SPRITES[1];
     if(img.getAttribute("src") !== src) img.src = src;
-    /* Gen 1 (level 0) gets the animated sprite; every other
-       generation keeps the static era image, untouched. */
-    if(level === 0){ LinAnim.start(); img.style.display = "none"; }
-    else { LinAnim.stop(); img.style.display = ""; }
   }
-
-  /* ===== Gen 1 Lin sprite animation =====
-     Four strips of the How-to-Play Lin (pink CoyoTech cap, hair
-     net, mask, overalls), backgrounds keyed out in the assets.
-     Frame counts are the strips' real counts — idle 8, assemble 8,
-     panic 9, ship 7 (panic/ship re-sliced to uniform cells in the
-     assets, figures in original order):
-       idle     — breathe loop, while waiting
-       assemble — pick-up + place, played once when a part is placed
-       panic    — late-order loop, while any order is LATE
-       ship     — shipping + celebrate, played once on a shipment
-     Wrong component has no strip: LinAnim.shake() shakes the
-     current frame in place. Frames advance by stepping
-     background-position on one div — the DOM is never rebuilt per
-     frame and the div is pointer-events:none, so every tap keeps
-     working exactly as before.
-     Priority: a one-shot (ship / assemble) always finishes first;
-     underneath, panic wins over idle whenever a late order exists.
-     Only active in Gen 1; setLin() starts/stops it per level. */
-  var LinAnim = (function(){
-    var STRIPS = {
-      idle:    "assets/lin-gen1-idle.webp",
-      assemble:"assets/lin-gen1-assemble.webp",
-      panic:   "assets/lin-gen1-panic.webp",
-      ship:    "assets/lin-gen1-ship.webp"
-    };
-    /* ms per frame: idle breathes slowly, work and panic run quick */
-    var FRAME_MS = { idle:190, assemble:105, panic:105, ship:120 };
-    var FRAMES = { idle:8, assemble:8, panic:9, ship:7 };
-    Object.keys(STRIPS).forEach(function(k){ var im = new Image(); im.src = STRIPS[k]; });
-    var reduced = !!(window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches);
-    var el = null, active = false, state = "idle", frame = 0, timer = null, once = null;
-
-    function anyLate(){
-      if(!S || !S.phones) return false;
-      for(var i=0;i<S.phones.length;i++) if(S.phones[i].late && !S.phones[i].ready) return true;
-      return false;
-    }
-    function baseState(){ return anyLate() ? "panic" : "idle"; }
-    function showFrame(){
-      if(!el) return;
-      /* background-size is (frames x 100)% wide, so frame i sits at
-         i/(frames-1) * 100% across the positioning range */
-      var n = FRAMES[state] || 8;
-      el.style.backgroundPosition = (n > 1 ? frame * 100 / (n - 1) : 0) + "% 0%";
-    }
-    function applyState(next){
-      state = next; frame = 0;
-      if(!el) return;
-      if(el.getAttribute("data-state") !== next) el.setAttribute("data-state", next);
-      el.style.backgroundImage = 'url("' + STRIPS[next] + '")';
-      showFrame();
-    }
-    function schedule(){
-      clearTimeout(timer);
-      if(!active || reduced) return;
-      timer = setTimeout(tick, FRAME_MS[state] || 150);
-    }
-    function tick(){
-      if(!active) return;
-      frame++;
-      if(frame > (FRAMES[state] || 8) - 1){
-        if(once){ once = null; applyState(baseState()); }
-        else {
-          /* looping strip: re-resolve idle vs panic each cycle so a
-             late order (or a cleared one) is picked up on its own */
-          var b = baseState();
-          if(b !== state){ applyState(b); schedule(); return; }
-          frame = 0;
-        }
-      }
-      showFrame();
-      schedule();
-    }
-    return {
-      start: function(){
-        el = $("linSprite");
-        if(!el) return;
-        active = true; once = null;
-        el.classList.add("on");
-        applyState(baseState());
-        if(reduced){ showFrame(); return; }
-        schedule();
-      },
-      stop: function(){
-        active = false; once = null;
-        clearTimeout(timer);
-        if(el) el.classList.remove("on");
-      },
-      /* one-shot: assemble on a placed part, ship on a shipment.
-         A new one-shot replaces the one playing; when it ends the
-         machine falls back to panic/idle on its own. */
-      playOnce: function(name){
-        if(!active || !STRIPS[name]) return;
-        once = name;
-        applyState(name);
-        schedule();
-      },
-      /* called when the late situation may have changed outside the
-         loop's own cycle check (order went late, shipped, cancelled) */
-      refresh: function(){
-        if(!active || once) return;
-        var b = baseState();
-        if(b !== state){ applyState(b); schedule(); }
-      },
-      /* wrong component: no strip — a quick shake of the current frame */
-      shake: function(){
-        if(!active || !el) return;
-        el.classList.remove("shake"); void el.offsetWidth; el.classList.add("shake");
-        if(navigator.vibrate) navigator.vibrate(30);
-      }
-    };
-  })();
 
   function fmtTime(s){ s = Math.max(0, Math.ceil(s)); return Math.floor(s/60)+":"+("0"+(s%60)).slice(-2); }
   function setText(id, v){
@@ -1224,7 +1083,7 @@
     var def = PARTS[k];
     if(def.kind === "station"){
       var sk = def.station, st = S.stations[sk];
-      if(st.items.length >= stationCap(sk)){ shakeEl(btn); LinAnim.shake(); sfx.bad(); toast(STATIONS[sk].name+" busy", "bad"); return; }
+      if(st.items.length >= stationCap(sk)){ shakeEl(btn); sfx.bad(); toast(STATIONS[sk].name+" busy", "bad"); return; }
       st.items.push({ part:k, t:stationDur(sk), dur:stationDur(sk), state:"cook" });
       stationSig = null;
       sfx.start();
@@ -1232,7 +1091,7 @@
       return;
     }
     var h = freeHand();
-    if(h === -1){ shakeEl(btn); LinAnim.shake(); sfx.bad(); toast("Hands full!", "bad"); return; }
+    if(h === -1){ shakeEl(btn); sfx.bad(); toast("Hands full!", "bad"); return; }
     S.hands[h] = k;
     sfx.pick();
     renderAll();
@@ -1260,7 +1119,6 @@
     if(!p) return;
     S.focusedId = id;
     if(p.ready){ renderAll(); return; }
-    var heldAny = !!(S.hands[0] || S.hands[1]);
     var delivered = 0;
     for(var i=0;i<2;i++){
       var k = S.hands[i];
@@ -1269,7 +1127,6 @@
       }
     }
     if(delivered){
-      LinAnim.playOnce("assemble");
       sfx.good();
       if(p.done.length >= p.seq.length){
         p.ready = true;
@@ -1286,8 +1143,7 @@
       }
     } else {
       /* held a part this phone doesn't need (or already has):
-         wrong component — Lin shakes the current frame */
-      if(heldAny) LinAnim.shake();
+         wrong component — just a tap sound, no delivery */
       sfx.tap();
     }
     renderAll();
@@ -1318,7 +1174,6 @@
       var r = btn.getBoundingClientRect(), sr = $("stage").getBoundingClientRect();
       fx("¥"+gain, Math.max(8, r.left - sr.left + 10), Math.max(8, r.top - sr.top - 60));
     }
-    LinAnim.playOnce("ship");
     renderAll();
     if(S.genCred >= LEVELS[S.level].quota) endLevel(true);
   }
@@ -1332,7 +1187,6 @@
     toast("Order cancelled "+S.strikes+"/3", "bad");
     if(S.strikes >= 3){ endLevel(false); return; }
     renderAll();
-    LinAnim.refresh(); /* the late order may be gone: back to idle */
   }
 
   var lastTs = null, uiAcc = 0;
@@ -1387,7 +1241,6 @@
       if(navigator.vibrate) navigator.vibrate(35);
       toast("Order late — reduced ¥", "bad");
       renderPhones();
-      LinAnim.refresh(); /* a late order exists: panic strip takes over */
     }
     dead.forEach(cancelOrder);
     if(S.mode !== "playing"){ renderAll(); return; }
