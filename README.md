@@ -1,10 +1,10 @@
 # Phone Factory
 
-A CoyoTech production — a Turbo Pizza-style factory game: assemble iPhones
-on the line. Juggle three orders at once, each with its own patience clock;
-start timed stations (Test, Press, Cure) and leave them to cook while you
-work another phone; carry two parts at once; chain shipments to the truck
-for bonus pay; spend credits on upgrades between generations.
+A CoyoTech production — assemble iPhones on the factory line. Juggle three
+orders at once, each with its own patience clock; start timed stations
+(Test, Press, Cure) and leave them to cook while you work another phone;
+carry two parts at once; chain shipments to the truck for bonus pay; spend
+credits on upgrades between generations.
 
 - **Gen 1:** 3–4 parts, no waiting. **Gen 2:** 3–5 parts, max 1 waiting.
   **Gen 3:** 4–5 parts, max 2 waiting. **Gen 4:** 4–6 parts, max 2 waiting.
@@ -19,4 +19,4 @@ Play it at https://ckeisc.github.io/phone-factory/ — installable as a PWA
 three.js loads from CDN.
 
 Icon: iPhone 17, screen side, with parts flying out with spark and smoke
-on a pink background — the final game icon.
+on a pink background.
