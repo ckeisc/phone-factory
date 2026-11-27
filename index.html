@@ -618,7 +618,7 @@
     board:'<rect x="20" y="20" width="64" height="56" rx="4" fill="#2e7d4f"/><path d="M26 30h20M26 42h30M26 54h16M62 30v30" stroke="#7fd49a" stroke-width="2.4" fill="none"/>',
     chip:'<rect x="38" y="30" width="28" height="28" rx="3" fill="#20262d"/><path d="M44 30v-5M52 30v-5M60 30v-5M44 63v-5M52 63v-5M60 63v-5" stroke="#8a94a0" stroke-width="2"/>',
     battery:'<rect x="22" y="84" width="60" height="40" rx="4" fill="#e8a812"/><rect x="27" y="90" width="34" height="10" rx="2" fill="#fff3c4"/>',
-    camera:'<rect x="20" y="18" width="24" height="24" rx="6" fill="#171c22"/><circle cx="32" cy="30" r="7" fill="#2b7f8f"/><circle cx="32" cy="30" r="3" fill="#0d1418"/>',
+    camera:'<rect x="20" y="18" width="24" height="24" rx="6" fill="#171c22"/><circle cx="38.5" cy="23.5" r="2.4" fill="#ffe9a8"/><circle cx="30" cy="32" r="8.6" fill="none" stroke="#d9dfe6" stroke-width="2"/><circle cx="30" cy="32" r="6.8" fill="#2b7f8f"/><circle cx="30" cy="32" r="3" fill="#0d1418"/><circle cx="28" cy="30" r="1.3" fill="#eaf7fc"/>',
     antenna:'<path d="M14 132h76M14 140h76" stroke="#c8d4dd" stroke-width="3"/>',
     gasket:'<rect x="16" y="14" width="72" height="142" rx="10" fill="none" stroke="#ef8fab" stroke-width="3.5" stroke-dasharray="7 5"/>',
     display:'<rect x="17" y="15" width="70" height="140" rx="9" fill="#7fc7de" opacity="0.42"/><path d="M28 140 L66 30" stroke="#eaf7fc" stroke-width="7" opacity="0.55"/>',
@@ -1549,6 +1549,7 @@
          board / battery          0.10 …  0.15   (gold pads to 0.17)
          chip                     0.155 … 0.215  (cap to 0.235)
          camera module base       0.155 … 0.21   (lens stack to 0.275)
+         camera BACK module      -0.235 … -0.085 (outside the back face)
          display assembly         0.29 …  0.33
          bundled screen slab      0.285 … 0.34   (face 0.347, streak 0.359)
          seal ring                0.34 …  0.45
@@ -1619,6 +1620,37 @@
     cam.add(cyl(0.068, 0.03, phys(0x060b12, 0.03, 0.2, 1.9, 1.0), -0.58, 1.58, 0.26));
     cam.add(cyl(0.055, 0.03, phys(0xffe9a8, 0.25, 0.4, 1.2, 0.6), -0.31, 1.85, 0.215));
     reg("camera", cam);
+
+    /* Back lens module — the other half of the SAME Camera part.
+       Root cause of "no camera on the back": the module above sits
+       entirely on the FRONT side of the phone (z 0.155 … 0.275,
+       facing +z), while the frame's back face is at z −0.09. Rotated
+       to the back, the solid frame body hid it completely, the only
+       thing facing the viewer was the flat back of its housing —
+       and once the phone was finished, hideInternals removed it
+       outright, leaving a blank back. A real camera's lens pokes
+       THROUGH the back cover, so this group mirrors the lens stack
+       on the back exterior, on the same axis (−0.58, 1.58, the
+       top corner): a raised housing seated 0.005 into the back face
+       (−0.085 … −0.145), then metal ring, barrel, blue glass and
+       dark pupil stepping outward to −0.235, plus the flash window
+       in the housing corner. Every element embeds into the one
+       below it — no coplanar faces. It is registered as its own
+       mesh ("cameraBack") so the tick loop can exempt it from the
+       final-assembly seatSink and hideInternals that correctly
+       bury the front stack under the sealing front panel; its
+       placed / next state mirrors "camera" (see the tick loop),
+       and it flies in on the same trajectory, as one part. */
+    var camBack = new THREE.Group();
+    camBack.add(box(0.82, 0.82, 0.06, phys(0x1a2027, 0.25, 0.6, 1.2, 0.8), -0.58, 1.58, -0.115));
+    camBack.add(cyl(0.24, 0.05, titaniumLight, -0.58, 1.58, -0.16));
+    camBack.add(cyl(0.19, 0.05, phys(0x11161c, 0.18, 0.7, 1.3, 0.9), -0.58, 1.58, -0.185));
+    camBack.add(cyl(0.15, 0.04, phys(0x2b6f9f, 0.04, 0.25, 1.9, 1.0), -0.58, 1.58, -0.205));
+    camBack.add(cyl(0.07, 0.03, phys(0x060b12, 0.03, 0.2, 1.9, 1.0), -0.58, 1.58, -0.22));
+    camBack.add(cyl(0.055, 0.03, phys(0xffe9a8, 0.25, 0.4, 1.2, 0.6), -0.31, 1.85, -0.15));
+    reg("cameraBack", camBack);
+    camBack.userData.fly.x = cam.userData.fly.x;
+    camBack.userData.fly.y = cam.userData.fly.y;
 
     var ant = new THREE.Group();
     ant.add(box(2.0, 0.07, 0.03, titaniumLight, 0, -1.92, 0.115));
@@ -2008,7 +2040,10 @@
       }
       /* once the front is fully seated the phone is closed: hide the
          internals outright (frame + screen stay) so nothing inside
-         can shimmer through or around the panel at glancing angles */
+         can shimmer through or around the panel at glancing angles.
+         Exception: the camera's BACK module (cameraBack) lives on
+         the outside of the back face — it is not an internal, and
+         hiding it left the finished phone's back blank. */
       var hideInternals = showFinish && seatE >= 0.985;
 
       /* ===== X-ray view during assembly =====
@@ -2032,13 +2067,16 @@
 
       Object.keys(meshes).forEach(function(name){
         var m = meshes[name];
-        var isPlaced = placedList.indexOf(name) !== -1;
-        var isNext = (name === nextPart);
+        /* cameraBack is the back-face half of the Camera part: it
+           shares camera's placed / next state, never its own name */
+        var srcName = (name === "cameraBack") ? "camera" : name;
+        var isPlaced = placedList.indexOf(srcName) !== -1;
+        var isNext = (srcName === nextPart);
         var isShell = (name === "frame" || name === "screen" || name === "display");
         if(isPlaced && !wasPlaced[name] && !spinning) placedAt[name] = t;
         wasPlaced[name] = isPlaced;
         m.visible = isPlaced || isNext;
-        if(hideInternals && name !== "frame" && name !== "screen") m.visible = false;
+        if(hideInternals && name !== "frame" && name !== "screen" && name !== "cameraBack") m.visible = false;
         if(!m.visible) return;
         var rp = m.userData.restP, rr = m.userData.restR;
         if(isPlaced){
@@ -2059,8 +2097,10 @@
           }
           /* final assembly: every placed part except the frame
              itself sinks into the frame as the sealing front seats,
-             so the completed phone is one solid slab */
-          if(name !== "frame" && seatSink) m.position.z -= seatSink;
+             so the completed phone is one solid slab. The camera's
+             back module is exempt: it sits OUTSIDE the back face,
+             and sinking it would tear it 0.22 off the back cover. */
+          if(name !== "frame" && name !== "cameraBack" && seatSink) m.position.z -= seatSink;
           /* shell parts fade between their X-ray opacity and their
              full base opacity as the phone is sealed (shellSolid);
              internal parts always render at full opacity */
