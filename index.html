@@ -401,7 +401,7 @@
         <div class="bar"><i id="stQuotaBar"></i></div>
         <span class="v"><span id="stCred">0</span>/<span id="stQuota">0</span></span>
       </div>
-      <div class="hud-stat">
+      <div class="hud-stat" id="stClockWrap">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="13" r="8"/><path d="M12 9v4l2.5 2.5M9 2.5h6"/></svg>
         <span class="v" id="stClock">0:00</span>
       </div>
@@ -566,7 +566,7 @@
      above. Each level declares its own tray and station list, so the
      Gen 1 tray shows no clock badges and no station row exists. */
   var LEVELS = [
-    { name:"Gen 1", quota:600, time:90, patience:42, spawn:5.0, era:1,
+    { name:"Gen 1", quota:600, time:90, patience:42, spawn:5.0, era:1, noTime:true,
       tray:["frame","board","chip","camera","antenna","screws"],
       stations:[],
       frameBundle:["screen","battery"],
@@ -724,6 +724,12 @@
     return d;
   }
   function freeHand(){ for(var i=0;i<2;i++) if(!S.hands[i]) return i; return -1; }
+  /* Gen 1 has NO time limit (LEVELS[0].noTime): the level clock never
+     ends the shift, order patience never drains, orders never go
+     late and are never cancelled for running out of time. Gens 2–5
+     keep the clock, patience drain, LATE grace and cancellation
+     exactly as before. */
+  function levelNoTime(){ return !!(LEVELS[S.level] && LEVELS[S.level].noTime); }
 
   /* Late orders: breaching the deadline does NOT cancel the order.
      It enters a grace period — half as long again as its patience —
@@ -754,6 +760,9 @@
     }
     setText("stWallet", "¥"+S.wallet);
     setText("stClock", fmtTime(S.timeLeft));
+    /* Gen 1 has no timer: hide the countdown clock entirely there */
+    var cw = $("stClockWrap");
+    if(cw){ var cwD = levelNoTime() ? "none" : ""; if(cw._d !== cwD){ cw._d = cwD; cw.style.display = cwD; } }
     setText("stReady", readyCount());
     var st = "";
     for(var i=0;i<3;i++) st += (i < S.strikes ? "●" : "○");
@@ -1173,7 +1182,7 @@
     if(stationChanged) stationSig = null;
     var dead = [], wentLate = false;
     S.phones.forEach(function(p){
-      if(p.ready) return; /* boxed phones don't get cancelled — but they hold their slot */
+      if(p.ready || levelNoTime()) return; /* boxed phones don't get cancelled — but they hold their slot. Gen 1 (noTime): patience never drains, so orders never go late or get cancelled. */
       if(!p.late){
         p.patience -= dt;
         if(p.patience <= 0){
@@ -1199,7 +1208,7 @@
     }
     dead.forEach(cancelOrder);
     if(S.mode !== "playing"){ renderAll(); return; }
-    if(S.timeLeft <= 0){
+    if(S.timeLeft <= 0 && !levelNoTime()){
       endLevel(S.genCred >= L.quota);
       return;
     }
@@ -1222,7 +1231,7 @@
     setLin(idx); renderTray(); renderAll();
     var L = LEVELS[idx];
     var note = "";
-    if(idx === 0) note = '<div style="margin-top:10px;font-weight:600;font-size:14px;line-height:1.4">Every phone starts as a clean slate — nothing pre-installed. Gen 1 phones take 3–4 parts and every part is instant: pick it up, deliver it. No waiting.<br/>Placing the Frame also fits its Screen + Battery — they come with it, no separate steps.</div>';
+    if(idx === 0) note = '<div style="margin-top:10px;font-weight:600;font-size:14px;line-height:1.4">Every phone starts as a clean slate — nothing pre-installed. Gen 1 phones take 3–4 parts and every part is instant: pick it up, deliver it. No waiting.<br/>Placing the Frame also fits its Screen + Battery — they come with it, no separate steps.<br/>Gen 1 has no time limit — orders never expire, so take your time and learn the line.</div>';
     else if(idx === 1) note = '<div style="margin-top:10px;font-weight:600;font-size:14px;line-height:1.4">New in Gen 2: station parts. Battery, Display and Glue (pink badge) need time on the Test, Press and Cure stations — start one, go work, collect on the beep. Gen 2 phones take 3–5 parts, with at most 1 waiting part each.</div>';
     else if(idx === 2) note = '<div style="margin-top:10px;font-weight:600;font-size:14px;line-height:1.4">Gen 3 phones take 4–5 parts, with at most 2 waiting parts each. Start the stations early and keep both hands busy while they cook.</div>';
     else if(idx === 3) note = '<div style="margin-top:10px;font-weight:600;font-size:14px;line-height:1.4">Gen 4 phones take 4–6 parts, with at most 2 waiting parts each — bigger builds, same waiting cap, tighter patience.</div>';
@@ -1230,7 +1239,7 @@
     showOverlay(
       '<img class="hero" src="assets/hero-factory.webp" alt="" />'+
       '<div class="pad"><div class="sub">'+L.name+'</div><h3>PhoneFactory</h3>'+
-      '<div class="stats"><div><b>¥'+L.quota+'</b>quota</div><div><b>'+fmtTime(L.time)+'</b>clock</div><div><b>3</b>orders</div><div><b>2</b>hands</div></div>'+
+      '<div class="stats"><div><b>¥'+L.quota+'</b>quota</div>'+(L.noTime ? '<div><b>∞</b>no limit</div>' : '<div><b>'+fmtTime(L.time)+'</b>clock</div>')+'<div><b>3</b>orders</div><div><b>2</b>hands</div></div>'+
       note+
       '<div class="btn-row"><button class="btn-card" id="ovGo">'+playIcon()+' Start</button></div></div>'
     );
@@ -1332,7 +1341,7 @@
     LEVELS.forEach(function(L, i){
       var b = document.createElement("button");
       b.className = "gen-btn";
-      b.innerHTML = '<span><span class="nm">'+L.name+'</span><span class="md">'+fmtTime(L.time)+(L.stations && L.stations.length ? ' · stations' : ' · all instant')+'</span></span><span class="q">¥'+L.quota+'</span>';
+      b.innerHTML = '<span><span class="nm">'+L.name+'</span><span class="md">'+(L.noTime ? 'No time limit' : fmtTime(L.time))+(L.stations && L.stations.length ? ' · stations' : ' · all instant')+'</span></span><span class="q">¥'+L.quota+'</span>';
       press(b, function(){ closePop("menuOverlay"); startLevel(i); });
       list.appendChild(b);
     });
