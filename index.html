@@ -10,7 +10,13 @@
      ("../") to the page itself; that keeps the manifest correct both
      on the Muse host and on GitHub Pages. iOS Safari has no automatic
      install prompt: the Apple meta tags + apple-touch-icon below are
-     what Share ->
+     what Share -> Add to Home Screen uses. -->
+<link rel="manifest" href="assets/manifest.json" />
+<meta name="theme-color" content="#0a4630" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+<meta name="apple-mobile-web-app-title" content="Phone Factory" />
+<link rel="apple-touch-icon" href="assets/apple-touch-icon.png" />
 <title>PhoneFactory — a CoyoTech production</title>
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -163,9 +169,9 @@
      composition — central aisle, green benches, pink-overall
      workers — with an infinite horizon, flying forward endlessly.
      It fills .stage-bg edge to edge (object-fit:cover), muted,
-     autoplay, looping, and plays at quarter speed: playbackRate
-     0.25 is set in the script at the bottom of this file, so the
-     10s clip takes 40s per pass and the flight stays calm behind
+     autoplay, looping, and plays at half speed: playbackRate
+     0.5 is set in the script at the bottom of this file, so the
+     10s clip takes 20s per pass and the flight stays calm behind
      the gameplay. The .30 opacity on .stage-bg plus the shade above
      keep it readable. Under prefers-reduced-motion the video is
      hidden and the static hero image shows instead. */
@@ -2105,7 +2111,7 @@
       celebrate: function(seq){ shipSeq = seq.slice(); shipAt = nowS(); triggerFx(0.9); }
     };
   })();
-  /* Background drone video: quarter speed (0.25x), muted, looping.
+  /* Background drone video: half speed (0.5x), muted, looping.
      playbackRate is (re)applied on loadedmetadata in case the
      browser resets it, and play() is nudged in case autoplay was
      deferred; the muted + playsinline attributes keep autoplay
@@ -2114,7 +2120,7 @@
     var v = $("bgVideo");
     if(!v) return;
     function slow(){
-      try{ v.playbackRate = 0.25; }catch(e){}
+      try{ v.playbackRate = 0.5; }catch(e){}
       var p = v.play();
       if(p && p.catch) p.catch(function(){});
     }
@@ -2127,6 +2133,7 @@
   renderAll();
 })();
 </script>
+
 <script>
 /* PWA: register the service worker that caches the game shell. */
 if ("serviceWorker" in navigator) {
