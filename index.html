@@ -4,19 +4,7 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
 <meta name="color-scheme" content="light dark" />
-<!-- PWA — installable app packaging. The web app manifest lives in
-     assets/ (only index.html + assets/ are served), so its icon paths
-     are relative to assets/ and its start_url/scope step up one level
-     ("../") to the page itself; that keeps the manifest correct both
-     on the Muse host and on GitHub Pages. iOS Safari has no automatic
-     install prompt: the Apple meta tags + apple-touch-icon below are
-     what Share -> Add to Home Screen uses. -->
-<link rel="manifest" href="assets/manifest.json" />
-<meta name="theme-color" content="#0a4630" />
-<meta name="apple-mobile-web-app-capable" content="yes" />
-<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-<meta name="apple-mobile-web-app-title" content="Phone Factory" />
-<link rel="apple-touch-icon" href="assets/apple-touch-icon.png" />
+<link rel="icon" href="data:," />
 <title>PhoneFactory — a CoyoTech production</title>
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -162,24 +150,16 @@
   /* ===== stage ===== */
   #stage{position:relative;flex:1;min-height:0;display:flex;flex-direction:column;overflow:hidden;
     background:linear-gradient(180deg,#0e5c3d 0%,#0a4630 100%)}
-  .stage-bg{position:absolute;inset:0;overflow:hidden;opacity:.30;pointer-events:none;background:#0a4630}
-  /* ===== drone fly-through background video =====
-     The ref-bg-1 drone loop, attempt B (assets/drone-loop-ref-b.mp4,
-     re-encoded small at 1152×768 / ~1.7 Mbps): the same hall
-     composition — central aisle, green benches, pink-overall
-     workers — with an infinite horizon, flying forward endlessly.
-     It fills .stage-bg edge to edge (object-fit:cover), muted,
-     autoplay, looping, and plays at half speed: playbackRate
-     0.5 is set in the script at the bottom of this file, so the
-     10s clip takes 20s per pass and the flight stays calm behind
-     the gameplay. The .30 opacity on .stage-bg plus the shade above
-     keep it readable. Under prefers-reduced-motion the video is
-     hidden and the static hero image shows instead. */
-  .stage-bg video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:center}
-  @media (prefers-reduced-motion: reduce){
-    .stage-bg video{display:none}
-    .stage-bg{background-image:url("assets/hero-factory.webp");background-size:cover;background-position:center 22%}
-  }
+  .stage-bg{position:absolute;inset:0;overflow:hidden;opacity:.30;pointer-events:none;background:#0a4630;
+    background-image:url("assets/ref-bg-1.webp");background-size:cover;background-position:center;background-repeat:no-repeat}
+  /* ===== static infinite-horizon background =====
+     The ref-bg-1 image (assets/ref-bg-1.webp): the same factory
+     hall — centered aisle, green benches, pink-overall workers —
+     with benches continuing endlessly to a single vanishing
+     point and no end wall. It fills .stage-bg edge to edge
+     (cover, centered), at the same .30 opacity the background
+     had before, with the shade above keeping gameplay readable.
+     No video, no drone loop, no zoom animation. */
   .stage-shade{position:absolute;inset:0;background:linear-gradient(180deg,rgba(7,46,31,.42),rgba(7,46,31,.66) 46%,rgba(6,38,26,.92));pointer-events:none}
   .stage-in{position:relative;flex:1;min-height:0;display:flex;flex-direction:column;gap:5px;padding:6px 8px 7px}
   #toast{position:absolute;top:8px;left:50%;transform:translateX(-50%) scale(.9);z-index:30;
@@ -433,7 +413,7 @@
   </header>
 
   <main id="stage">
-    <div class="stage-bg" aria-hidden="true"><video id="bgVideo" src="assets/drone-loop-ref-b.mp4" poster="assets/hero-factory.webp" muted loop autoplay playsinline preload="auto"></video></div>
+    <div class="stage-bg" aria-hidden="true"></div>
     <div class="stage-shade" aria-hidden="true"></div>
     <div id="toast" role="status"></div>
     <div class="stage-in">
@@ -2111,36 +2091,10 @@
       celebrate: function(seq){ shipSeq = seq.slice(); shipAt = nowS(); triggerFx(0.9); }
     };
   })();
-  /* Background drone video: half speed (0.5x), muted, looping.
-     playbackRate is (re)applied on loadedmetadata in case the
-     browser resets it, and play() is nudged in case autoplay was
-     deferred; the muted + playsinline attributes keep autoplay
-     allowed on iOS. */
-  (function(){
-    var v = $("bgVideo");
-    if(!v) return;
-    function slow(){
-      try{ v.playbackRate = 0.5; }catch(e){}
-      var p = v.play();
-      if(p && p.catch) p.catch(function(){});
-    }
-    if(v.readyState >= 1) slow();
-    v.addEventListener("loadedmetadata", slow);
-  })();
-
   setLin(0);
   renderTray();
   renderAll();
 })();
-</script>
-
-<script>
-/* PWA: register the service worker that caches the game shell. */
-if ("serviceWorker" in navigator) {
-  window.addEventListener("load", function () {
-    navigator.serviceWorker.register("./sw.js").catch(function () {});
-  });
-}
 </script>
 </body>
 </html>
