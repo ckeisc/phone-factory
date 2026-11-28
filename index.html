@@ -475,7 +475,7 @@
         <div><svg viewBox="0 0 24 24" fill="none" stroke="#d1406f" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="8"/><path d="M12 8v4l3 2"/></svg>Station parts start in Gen 2</div>
         <div><svg viewBox="0 0 24 24" fill="none" stroke="#d1406f" stroke-width="2" stroke-linecap="round"><path d="M4 17V7l8-4 8 4v10"/><path d="M2 21h20"/></svg>Pink badge = station part — start it, go work</div>
         <div><svg viewBox="0 0 24 24" fill="none" stroke="#d1406f" stroke-width="2" stroke-linecap="round"><path d="M18 8a6 6 0 1 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9ZM10 21a2 2 0 0 0 4 0"/></svg>Green flash + beep = done</div>
-        <div><svg viewBox="0 0 24 24" fill="none" stroke="#d1406f" stroke-width="2" stroke-linecap="round"><rect x="6" y="3" width="12" height="18" rx="3"/></svg>Tap a phone to deliver</div>
+        <div><svg viewBox="0 0 24 24" fill="none" stroke="#d1406f" stroke-width="2" stroke-linecap="round"><rect x="6" y="3" width="12" height="18" rx="3"/></svg>Tap a phone to deliver — Frame first, rest any order</div>
         <div><svg viewBox="0 0 24 24" fill="none" stroke="#d1406f" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8h11v9H3zM14 11h4l3 3v3h-7z"/><circle cx="7" cy="17" r="1.8"/><circle cx="17" cy="17" r="1.8"/></svg>Ship 2–3 at once = chain ¥</div>
         <div><svg viewBox="0 0 24 24" fill="none" stroke="#d1406f" stroke-width="2" stroke-linecap="round"><path d="M4 20 20 4M20 4h-6M20 4v6"/></svg>Late = less ¥, then cancelled</div>
         <div><svg viewBox="0 0 24 24" fill="none" stroke="#d1406f" stroke-width="2" stroke-linecap="round"><path d="M12 3v3M12 18v3M3 12h3M18 12h3M6 6l2 2M16 16l2 2M18 6l-2 2M8 16l-2 2"/></svg>Upgrades between generations</div>
@@ -932,8 +932,11 @@
          rebuilt from the hands on every render, so clearing a hand
          takes that part's preview off the bench with it. */
       var seqV = expandVisual(p.seq);
+      /* frame-first: until the Frame is in (or in hand, landing on
+         this tap), no other part previews — it cannot go on yet */
+      var frameReady = p.seq.indexOf("frame") === -1 || p.done.indexOf("frame") !== -1 || S.hands.indexOf("frame") !== -1;
       expandVisual(S.hands.filter(Boolean)).forEach(function(k){
-        if(seqV.indexOf(k) !== -1 && doneV.indexOf(k) === -1 && PHONE_LAYERS[k])
+        if(seqV.indexOf(k) !== -1 && doneV.indexOf(k) === -1 && PHONE_LAYERS[k] && (frameReady || k === "frame"))
           layers += '<g class="pv">' + PHONE_LAYERS[k] + "</g>";
       });
     }
@@ -1102,10 +1105,19 @@
     if(!p) return;
     S.focusedId = id;
     if(p.ready){ renderAll(); return; }
-    var delivered = 0;
-    for(var i=0;i<2;i++){
-      var k = S.hands[i];
-      if(k && p.seq.indexOf(k) !== -1 && p.done.indexOf(k) === -1){
+    /* frame-first rule (the only order gate): the Frame is the base
+       of the phone, so no other component can go on until it is in.
+       Frame is delivered in a first pass so holding Frame + another
+       part lands both in one tap; every other part stays free-order. */
+    var delivered = 0, blockedByFrame = false;
+    for(var pass=0; pass<2; pass++){
+      for(var i=0;i<2;i++){
+        var k = S.hands[i];
+        if(!k || (pass === 0) !== (k === "frame")) continue;
+        if(p.seq.indexOf(k) === -1 || p.done.indexOf(k) !== -1) continue;
+        if(k !== "frame" && p.seq.indexOf("frame") !== -1 && p.done.indexOf("frame") === -1){
+          blockedByFrame = true; continue;
+        }
         p.done.push(k); S.hands[i] = null; delivered++;
       }
     }
@@ -1124,6 +1136,10 @@
         setTimeout(function(){ benchEl.classList.remove("celebrate"); }, 1350);
         if(navigator.vibrate) navigator.vibrate(25);
       }
+    } else if(blockedByFrame){
+      /* held a part this phone needs, but the Frame isn't in yet */
+      sfx.bad();
+      toast("Frame goes in first!", "bad");
     } else {
       /* held a part this phone doesn't need (or already has):
          wrong component — just a tap sound, no delivery */
@@ -1402,7 +1418,8 @@
   });
 
   /* ===== three.js bench phone: the FOCUSED phone in 3D, filling with
-     delivered parts in any order. SVG bench stays as the fallback. ===== */
+     delivered parts (Frame first, the rest in any order). SVG bench
+     stays as the fallback. ===== */
   var P3 = (function(){
     var stub = { syncWith:function(){}, fumble:function(){}, celebrate:function(){} };
     if(!window.THREE) return stub;
@@ -1970,8 +1987,11 @@
          with it — no ghost can outlive the hand that raised it. */
       var previewSet = [];
       if(!spinning){
+        /* frame-first: until the Frame is placed (or in hand, landing
+           on this tap), no other part previews — it cannot go on yet */
+        var frameReady = state.seq.indexOf("frame") === -1 || state.done.indexOf("frame") !== -1 || state.hands.indexOf("frame") !== -1;
         state.hands.forEach(function(k){
-          if(k && state.seq.indexOf(k) !== -1 && state.done.indexOf(k) === -1 && previewSet.indexOf(k) === -1)
+          if(k && state.seq.indexOf(k) !== -1 && state.done.indexOf(k) === -1 && previewSet.indexOf(k) === -1 && (frameReady || k === "frame"))
             previewSet.push(k);
         });
       }
